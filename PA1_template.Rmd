@@ -1,0 +1,164 @@
+
+## Course Project 1
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+The purpose of this project to analyse given data and write a redprocudible research document using 'knitr. The data for this assignment can be downloaded from the course web site https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+
+
+####Load packages  
+
+```{r packages}
+
+library(dplyr)
+library(ggplot2)
+
+```
+
+####Downloading and unzipping raw data from the given URL 
+
+```{r}
+
+if(!file.exists("./Data")) {dir.create("./Data")}
+fileurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+
+if(!file.exists("./Data/repdata_data_activity.ZIP"))
+     {
+          download.file(fileurl,"./Data/repdata_data_activity.ZIP")
+          unzip("./Data/repdata_data_activity.ZIP",exdir = "./Data", unzip = "internal",setTimes = FALSE)
+     }
+
+```
+
+####Load the data
+
+```{r data file}
+data <- read.csv(file = "./Data/activity.csv",header = TRUE)
+
+```
+
+####Compute total, mean and median of steps taken each day
+
+```{r total mean median 1}
+ total_steps_datewise <- data %>%
+                         group_by(date) %>%
+                         summarise(total_step = sum(steps, na.rm = TRUE))
+
+ avg <- as.integer(mean(total_steps_datewise$total_step))
+ 
+ median <- median(total_steps_datewise$total_step)
+
+```
+
+####Create Histogram
+
+```{r Histogram Total Steps}
+
+ hist(total_steps_datewise$total_step, xlab = "Total no. of steps each day", col = "Blue", main = "Histogram of Total Steps Per Day")
+
+
+```
+
+The average of the total number of steps taken each day is `r avg`. The median value is `r median`.  
+
+####Compute average no. of steps interval wise
+
+```{r mean and max steps}
+
+ avg_steps_intervalwise <- data %>%
+                           group_by(interval) %>%
+                           summarise(avg_step = mean(steps, na.rm = TRUE))
+
+ max <- avg_steps_intervalwise[which.max(avg_steps_intervalwise$avg_step),]
+
+
+```
+
+####Time series plot of the average number of steps taken
+
+```{r plot no. 2}
+
+ with(avg_steps_intervalwise, plot(interval, avg_step, xlab = "5 Min. Time Interval", ylab = "Average Steps", type = "l"))
+
+```
+
+Time interval number `r max[,1]` has highest number of average steps for all days.
+
+####Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+
+```{r count_NA}
+
+ count_of_NA <- sum(is.na(data$steps))
+
+```
+
+The total number of missing values in the dataset (i.e. the total number of rows with NAs) is `r count_of_NA`.
+
+####Creating  a revised dataframe by replacing NA values in 'steps' with the mean values of the steps taken for the corresponding interval.
+
+
+```{r fill_NA}
+
+ df <- data %>% mutate(steps_new = replace(steps,which(is.na(steps) & interval == avg_steps_intervalwise$interval),avg_steps_intervalwise$avg_step))
+
+ data_new <- select(df, steps = steps_new, date, interval)
+
+```
+
+####Calculate total steps, mean and median values for revised data.  
+
+```{r recompute total mean  median 2 }
+ 
+ datewise_new  <- data_new %>%
+                 group_by(date) %>%
+                 summarise(total_step = sum(steps))
+
+ avg_new <- as.integer(mean(datewise_new$total_step))
+ 
+ median_new <- as.integer(median(datewise_new$total_step))
+
+ 
+```
+
+####Create revised histogram of new data
+
+```{r Revised Histogram }
+
+hist(datewise_new$total_step, xlab = "Total no. of steps each day", col = "Cyan", main = "Histogram of Total Steps Per Day")
+
+
+```
+
+The average of the total number of steps taken each day is `r avg_new`. The median value is `r median_new`. 
+
+
+
+With the updated dataset as done in the above steps, Make a panel plot containing a time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis) as given below.
+
+####Re-compute the average number of steps for each interval using revised data (data_new) and then use ggplot for the plot.
+
+
+```{r Activity }
+
+ data_new <- mutate(data_new, day = weekdays(as.Date(date)), day_type = as.factor(if_else(day == "Saturday" | day == "Sunday", "Weekend","Weekday")))
+
+ avg_data_new <- data_new %>% 
+                 group_by(interval,day_type) %>% 
+                 summarise(avg_step = mean(steps))
+
+```
+
+####Panel Plot
+
+```{r plot}
+ g <- ggplot(avg_data_new, aes(interval, avg_step, colour = day_type))
+ g <- g + geom_line() + facet_grid( rows = vars(avg_data_new$day_type))
+
+ print(g)
+
+```
